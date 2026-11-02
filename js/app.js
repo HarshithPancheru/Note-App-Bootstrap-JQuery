@@ -3,7 +3,7 @@
         'use strict';
 
         const STORAGE_KEY = 'aurora_notes_v1';
-    let notes = [];
+        let notes = [];
         const $notesGrid = $('#notesGrid');
         const $searchInput = $('#searchInput');
         const $tagFilter = $('#tagFilter');
@@ -59,9 +59,9 @@
                 return;
             }
 
-                list.forEach((n, idx) => {
-                                        const col = $('<div class="col"></div>');
-                                        const card = $(`
+            list.forEach((n, idx) => {
+                const col = $('<div class="col"></div>');
+                const card = $(`
                         <div class="card notes-card note-bg-${(idx % 3) + 1} p-3 shadow-sm">
                             <div class="card-body">
                                     <div>
@@ -76,9 +76,9 @@
                             </div>
                         </div>
                     `);
-                                        col.append(card);
-                                        $notesGrid.append(col);
-                                });
+                col.append(card);
+                $notesGrid.append(col);
+            });
         }
 
         // escapeHtml: sanitize text for safe HTML insertion
@@ -91,90 +91,90 @@
                 .replace(/\'/g, '&#39;');
         }
 
-  function addNote() {
-                    const title = $('#noteTitle').val().trim();
-                    const content = $('#noteContent').val().trim();
-                    const tags = $('#noteTags').val().split(',').map(t => t.trim()).filter(Boolean);
-                    if (!content && !title) return flash('Please write something before saving.');
-                    const n = { id: Date.now().toString(), title, content, tags, created: Date.now(), updated: Date.now() };
-                    notes.push(n);
+        function addNote() {
+            const title = $('#noteTitle').val().trim();
+            const content = $('#noteContent').val().trim();
+            const tags = $('#noteTags').val().split(',').map(t => t.trim()).filter(Boolean);
+            if (!content && !title) return flash('Please write something before saving.');
+            const n = { id: Date.now().toString(), title, content, tags, created: Date.now(), updated: Date.now() };
+            notes.push(n);
+            saveNotes();
+            renderTagsFilter();
+            renderNotes();
+            clearForm();
+        }
+
+        function clearForm() {
+            $('#noteTitle').val('');
+            $('#noteContent').val('');
+            $('#noteTags').val('');
+        }
+
+
+        function clearAllNotes() {
+            if (!confirm('Delete all notes? This cannot be undone.')) return;
+            notes = [];
+            saveNotes();
+            renderTagsFilter();
+            renderNotes();
+        }
+
+        function flash(msg) {
+            const $f = $(`<div class="toast align-items-center text-bg-dark border-0 position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true"><div class="d-flex"><div class="toast-body">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`);
+            $('body').append($f);
+            const t = new bootstrap.Toast($f[0]);
+            t.show();
+            setTimeout(() => { $f.remove(); }, 6000);
+        }
+
+        function exportNotes() {
+            const data = JSON.stringify(notes, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `aurora-notes-${Date.now()}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function importNotes(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const incoming = JSON.parse(e.target.result);
+                    if (!Array.isArray(incoming)) throw new Error('Invalid format');
+                    const incomingFiltered = incoming.map(n => ({ id: n.id || Date.now().toString() + Math.random(), title: n.title || '', content: n.content || '', tags: n.tags || [], created: n.created || Date.now(), updated: n.updated || Date.now() }));
+                    notes = notes.concat(incomingFiltered);
                     saveNotes();
                     renderTagsFilter();
                     renderNotes();
-                    clearForm();
-                }
+                    flash('Imported notes successfully');
+                } catch (err) { flash('Import failed: invalid file'); }
+            };
+            reader.readAsText(file);
+        }
 
-  function clearForm() {
-                    $('#noteTitle').val('');
-                    $('#noteContent').val('');
-                    $('#noteTags').val('');
-                }
+        // events
+        $(function () {
+            loadNotes();
+            renderTagsFilter();
+            renderNotes();
 
+            $('#saveNote').on('click', addNote);
+            $('#clearForm').on('click', clearForm);
 
-  function clearAllNotes() {
-                    if (!confirm('Delete all notes? This cannot be undone.')) return;
-                    notes = [];
-                    saveNotes();
-                    renderTagsFilter();
-                    renderNotes();
-                }
+            $searchInput.on('input', renderNotes);
+            $tagFilter.on('change', renderNotes);
+            $sortSelect.on('change', renderNotes);
 
-  function flash(msg) {
-                    const $f = $(`<div class="toast align-items-center text-bg-dark border-0 position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true"><div class="d-flex"><div class="toast-body">${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`);
-                    $('body').append($f);
-                    const t = new bootstrap.Toast($f[0]);
-                    t.show();
-                    setTimeout(() => { $f.remove(); }, 6000);
-                }
+            $('#clearAll').on('click', clearAllNotes);
 
-  function exportNotes() {
-                    const data = JSON.stringify(notes, null, 2);
-                    const blob = new Blob([data], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url; a.download = `aurora-notes-${Date.now()}.json`;
-                    document.body.appendChild(a); a.click(); a.remove();
-                    URL.revokeObjectURL(url);
-                }
+            $('#exportBtn').on('click', exportNotes);
+            $('#importBtn').on('click', () => $('#importFile').trigger('click'));
+            $('#importFile').on('change', function (e) { const f = this.files && this.files[0]; if (f) importNotes(f); this.value = ''; });
 
-    function importNotes(file) {
-                    const reader = new FileReader();
-                    reader.onload = e => {
-                        try {
-                            const incoming = JSON.parse(e.target.result);
-                            if (!Array.isArray(incoming)) throw new Error('Invalid format');
-                            const incomingFiltered = incoming.map(n => ({ id: n.id || Date.now().toString() + Math.random(), title: n.title || '', content: n.content || '', tags: n.tags || [], created: n.created || Date.now(), updated: n.updated || Date.now() }));
-                            notes = notes.concat(incomingFiltered);
-                            saveNotes();
-                            renderTagsFilter();
-                            renderNotes();
-                            flash('Imported notes successfully');
-                        } catch (err) { flash('Import failed: invalid file'); }
-                    };
-                    reader.readAsText(file);
-                }
+            // quick save with Ctrl+Enter on editor
+            $('#noteContent').on('keydown', function (e) { if (e.ctrlKey && e.key === 'Enter') { $('#saveNote').trigger('click'); } });
+        });
 
-  // events
-  $(function () {
-                    loadNotes();
-                    renderTagsFilter();
-                    renderNotes();
-
-                    $('#saveNote').on('click', addNote);
-                    $('#clearForm').on('click', clearForm);
-
-                    $searchInput.on('input', renderNotes);
-                    $tagFilter.on('change', renderNotes);
-                    $sortSelect.on('change', renderNotes);
-
-                    $('#clearAll').on('click', clearAllNotes);
-
-                    $('#exportBtn').on('click', exportNotes);
-                    $('#importBtn').on('click', () => $('#importFile').trigger('click'));
-                    $('#importFile').on('change', function (e) { const f = this.files && this.files[0]; if (f) importNotes(f); this.value = ''; });
-
-                    // quick save with Ctrl+Enter on editor
-                    $('#noteContent').on('keydown', function (e) { if (e.ctrlKey && e.key === 'Enter') { $('#saveNote').trigger('click'); } });
-                });
-
-        }) (jQuery);
+    })(jQuery);
